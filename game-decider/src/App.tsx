@@ -67,13 +67,32 @@ function App() {
     }
   };
 
-  const handleStartVoting = () => {};
+  const handleStartVoting = async () => {
+    const { data, error } = await supabase
+      .from("lobbies")
+      .update({ is_voting_open: true }) // The column: the new value
+      .eq("code", activeLobbyCode) // The filter: find the row with this code
+      .select(); // Optional: get the updated row back
+
+    if (error) {
+      console.error("Failed to start voting:", error.message);
+      alert("Could not start voting. Try again!");
+    } else {
+      console.log("Voting has officially started!", data);
+    }
+  };
 
   // useEffect is a hook used to listen to supabase.
   useEffect(() => {
     if (!activeLobbyCode) return;
 
     // Subscribe to changes in the 'lobbies' table for our specific code
+    // .channel: We name the dedicated line to supabase.
+    // .on: Tells us to notify the react application whenever a change
+    // occurs "on" a channel that fits the criteria (an update occurs, on a public
+    // table named lobbies with the code matching the activeLobby code (for performance)).
+    // payload: is the packet of information sent from supabase, with the updated row info.
+    // .subscribe: Turns on the listener and starts the stream.
     const channel = supabase
       .channel("lobby-room")
       .on(
@@ -88,6 +107,9 @@ function App() {
           console.log("Lobby updated live!", payload.new);
           // Here you can check if payload.new.is_voting_open is true
           // and switch everyone's screen automatically!
+          if (payload.new.is_voting_open) {
+            setCurrentScreen("VOTING");
+          }
         }
       )
       .subscribe();
