@@ -16,8 +16,6 @@ function App() {
   const [isHost, setIsHost] = useState<boolean>(false);
 
   const handleCreateSubmit = async (title: string, games: string[]) => {
-    console.log("TODO: Send this to supabase ->", { title, games });
-
     // we gotta create a database entry for the lobby, set the lobbyCode as generated
     // then change the screen to a lobby vote screen, and allow for voting
     // Also then we use the database as the source of truth for voting and result
@@ -25,11 +23,19 @@ function App() {
 
     const roomCode = Math.random().toString(36).substring(2, 7).toUpperCase();
 
+    // await: tells javascript to wait for confirmation before proceeding running code.
+    // .from: targets the "lobbies" table in our supabase database.
+    // .insert: inserts the information we wish to insert into our supabase database
+    // it is in an array format as supabase allows us to insert multiple rows at once.
+    // .select: instead of receiving a confirmation of success from .insert, this returns
+    // the data from the row we have added, giving us the generated id and stuff in form.
     const { data, error } = await supabase
       .from("lobbies")
       .insert([{ code: roomCode, title: title, game_list: games }])
       .select();
 
+    // Here we  check that we don't have an error, and if not set our react state variables
+    // to have the current correct information.
     if (error) {
       alert("Error creating lobby: " + error.message);
     } else if (data) {
@@ -43,8 +49,10 @@ function App() {
   };
 
   const handleJoinSubmit = async (code: string) => {
-    console.log("TODO: Check Supabase for code ->", code);
-
+    // .from: targets our lobbies database
+    // .select: retreives every column
+    // .eq: Filters our rows by the code that has been passed in.
+    // .single: as opposed to .select, this returns only a single object.
     const { data, error } = await supabase
       .from("lobbies")
       .select("*")
@@ -61,6 +69,7 @@ function App() {
 
   const handleStartVoting = () => {};
 
+  // useEffect is a hook used to listen to supabase.
   useEffect(() => {
     if (!activeLobbyCode) return;
 
@@ -83,9 +92,12 @@ function App() {
       )
       .subscribe();
 
+    // Tells the app to stop listening.
     return () => {
       supabase.removeChannel(channel);
     };
+    // [activeLobbyCode] is our dependency array, this function runs when active lobby
+    // code changes.
   }, [activeLobbyCode]);
 
   // #######################################
