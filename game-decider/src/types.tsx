@@ -4,4 +4,5 @@ export interface LobbyData {
   title: string;
   game_list: string[];
   is_voting_open: boolean;
+  results: string[];
 }

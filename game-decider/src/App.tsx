@@ -5,8 +5,18 @@ import CreateLobbyForm from "./components/CreateLobbyForm";
 import JoinLobby from "./components/JoinLobby";
 import { supabase } from "./lib/supabase";
 import LobbyView from "./components/LobbyView";
+import VotingScreen from "./components/VotingScreen";
+import type { LobbyData } from "./types";
+import { calculateResults } from "./lib/CalculateResults";
 
-type Screen = "HOME" | "CREATE" | "JOIN" | "LOBBY" | "VOTING" | "RESULTS";
+type Screen =
+  | "HOME"
+  | "CREATE"
+  | "JOIN"
+  | "LOBBY"
+  | "VOTING"
+  | "RESULTS WAITING"
+  | "RESULTS";
 
 function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("HOME");
@@ -15,7 +25,15 @@ function App() {
 
   const [isHost, setIsHost] = useState<boolean>(false);
 
-  const handleCreateSubmit = async (title: string, games: string[]) => {
+  const [userName, setUserName] = useState<string>("Player");
+
+  const [lobby, setLobby] = useState<LobbyData | null>(null);
+
+  const handleCreateSubmit = async (
+    title: string,
+    games: string[],
+    userName: string
+  ) => {
     // we gotta create a database entry for the lobby, set the lobbyCode as generated
     // then change the screen to a lobby vote screen, and allow for voting
     // Also then we use the database as the source of truth for voting and result
@@ -42,13 +60,16 @@ function App() {
       setActiveLobbyCode(roomCode);
       setCurrentScreen("LOBBY");
       setIsHost(true);
+      setLobby(data[0] as LobbyData);
     }
+
+    setUserName(userName);
 
     // SetActiveLobbyCode("NEW-CODE");
     // SetCurrentScreen("LOBBY");
   };
 
-  const handleJoinSubmit = async (code: string) => {
+  const handleJoinSubmit = async (code: string, userName: string) => {
     // .from: targets our lobbies database
     // .select: retreives every column
     // .eq: Filters our rows by the code that has been passed in.
@@ -65,6 +86,8 @@ function App() {
       setActiveLobbyCode(code);
       setCurrentScreen("LOBBY");
     }
+
+    setUserName(userName);
   };
 
   const handleStartVoting = async () => {
@@ -79,6 +102,32 @@ function App() {
       alert("Could not start voting. Try again!");
     } else {
       console.log("Voting has officially started!", data);
+    }
+  };
+
+  const handleFinishVoting = async () => {
+    const { data: ballots, error: fetchError } = await supabase
+      .from("votes")
+      .select("ranked_ids")
+      .eq("lobby_code", activeLobbyCode);
+
+    if (fetchError || !ballots) return;
+
+    // We extract just the arrays: [['Halo', 'Chess'], ['Chess', 'Halo']]
+    const formattedBallots = ballots.map((v) => v.ranked_ids);
+    const results = calculateResults(formattedBallots, lobby?.game_list);
+
+    const { error } = await supabase
+      .from("lobbies")
+      .update({
+        is_voting_open: false,
+        voting_finished: true,
+        results: results,
+      })
+      .eq("code", activeLobbyCode);
+
+    if (error) {
+      alert("Error closing voting: " + error.message);
     }
   };
 
@@ -109,6 +158,10 @@ function App() {
           // and switch everyone's screen automatically!
           if (payload.new.is_voting_open) {
             setCurrentScreen("VOTING");
+          }
+          if (payload.new.voting_finished) {
+            setCurrentScreen("RESULTS");
+            setLobby(payload.new as LobbyData);
           }
         }
       )
@@ -157,6 +210,82 @@ function App() {
           onBack={() => setCurrentScreen("HOME")}
         />
       </>
+    );
+  }
+
+  if (currentScreen === "VOTING") {
+    return (
+      <div className="container">
+        <h1>Voting Room</h1>
+        <VotingScreen
+          lobbyCode={activeLobbyCode!}
+          userName={userName} // You'll need a state for this!
+          onVoteSubmitted={() => {
+            setCurrentScreen("RESULTS WAITING");
+          }}
+        />
+
+        <Button
+          content="Exit to Home"
+          onClick={() => setCurrentScreen("HOME")}
+        />
+      </div>
+    );
+  }
+
+  if (currentScreen === "RESULTS WAITING") {
+    return (
+      <div className="container">
+        <h1>Ballot Submitted!</h1>
+        <p>Your rankings are locked in.</p>
+
+        {/* Real-time feedback makes the system feel alive */}
+        <div className="status-box">
+          {isHost ? (
+            <>
+              <p>
+                Once everyone has finished, click below to calculate the winner.
+              </p>
+              <Button
+                content="Finish Voting & Reveal Winner"
+                onClick={handleFinishVoting}
+              />
+            </>
+          ) : (
+            <div className="loader">
+              <p>Waiting for the host to finalize the results...</p>
+              {/* You could add a count here later: "5 votes collected" */}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (currentScreen === "RESULTS") {
+    return (
+      <div className="container results-screen">
+        <h1>The Results are In!</h1>
+
+        <div className="podium">
+          {lobby?.results?.map((game, index) => (
+            <div key={game} className={`rank-card rank-${index + 1}`}>
+              <span className="medal">
+                {index === 0
+                  ? "🥇"
+                  : index === 1
+                  ? "🥈"
+                  : index === 2
+                  ? "🥉"
+                  : `#${index + 1}`}
+              </span>
+              <span className="game-name">{game}</span>
+            </div>
+          ))}
+        </div>
+
+        <Button content="New Game" onClick={() => window.location.reload()} />
+      </div>
     );
   }
 
