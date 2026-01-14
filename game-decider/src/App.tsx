@@ -29,6 +29,8 @@ function App() {
 
   const [lobby, setLobby] = useState<LobbyData | null>(null);
 
+  // Sends Details of a new lobby to supabase and autojoins user as host of
+  // new lobby.
   const handleCreateSubmit = async (
     title: string,
     games: string[],
@@ -49,7 +51,14 @@ function App() {
     // the data from the row we have added, giving us the generated id and stuff in form.
     const { data, error } = await supabase
       .from("lobbies")
-      .insert([{ code: roomCode, title: title, game_list: games }])
+      .insert([
+        {
+          code: roomCode,
+          title: title,
+          game_list: games,
+          participants: [userName],
+        },
+      ])
       .select();
 
     // Here we  check that we don't have an error, and if not set our react state variables
@@ -69,27 +78,44 @@ function App() {
     // SetCurrentScreen("LOBBY");
   };
 
+  // Joins lobby matching to room code if exists
   const handleJoinSubmit = async (code: string, userName: string) => {
+    setUserName(userName);
     // .from: targets our lobbies database
     // .select: retreives every column
     // .eq: Filters our rows by the code that has been passed in.
     // .single: as opposed to .select, this returns only a single object.
+    const lobbyCode = code.toUpperCase();
     const { data, error } = await supabase
       .from("lobbies")
       .select("*")
-      .eq("code", code.toUpperCase())
+      .eq("code", lobbyCode)
       .single();
 
     if (error || !data) {
       alert("Lobby not found! Check the code and try again.");
-    } else {
-      setActiveLobbyCode(code);
-      setCurrentScreen("LOBBY");
+      return;
     }
 
-    setUserName(userName);
+    // Don't use Array.push (returns new length); build a new array instead.
+    const newParticipants = [...(data.participants ?? []), userName];
+    const { data: d2, error: e2 } = await supabase
+      .from("lobbies")
+      .update({ participants: newParticipants })
+      .eq("code", lobbyCode)
+      .select();
+
+    if (e2 || !d2) {
+      alert("Error pushing username to the cloud, try again");
+      return;
+    }
+
+    setActiveLobbyCode(lobbyCode);
+    setCurrentScreen("LOBBY");
+    setLobby(data as LobbyData);
   };
 
+  // Sends update to supabase to begin voting for all players
   const handleStartVoting = async () => {
     const { data, error } = await supabase
       .from("lobbies")
@@ -105,6 +131,8 @@ function App() {
     }
   };
 
+  // Applys the preferential voting calculations and updates supabase with
+  // results, ensuring all players move to results screen.
   const handleFinishVoting = async () => {
     const { data: ballots, error: fetchError } = await supabase
       .from("votes")
@@ -179,12 +207,11 @@ function App() {
   if (currentScreen === "LOBBY") {
     return (
       <div>
-        <LobbyView lobbyCode={activeLobbyCode} />
-        {isHost ? (
-          <Button content="Start Voting" onClick={handleStartVoting} />
-        ) : (
-          "Waiting for the host to start..."
-        )}
+        <LobbyView
+          lobbyCode={activeLobbyCode}
+          isHost={isHost}
+          onStartVoting={handleStartVoting}
+        />
       </div>
     );
   }
@@ -192,7 +219,6 @@ function App() {
   if (currentScreen === "CREATE") {
     return (
       <>
-        <h1>Setup your vote</h1>
         <CreateLobbyForm
           onCreate={handleCreateSubmit}
           onBack={() => setCurrentScreen("HOME")}
@@ -204,7 +230,6 @@ function App() {
   if (currentScreen === "JOIN") {
     return (
       <>
-        <h1>Join A Group</h1>
         <JoinLobby
           onJoin={handleJoinSubmit}
           onBack={() => setCurrentScreen("HOME")}
@@ -219,7 +244,7 @@ function App() {
         <h1>Voting Room</h1>
         <VotingScreen
           lobbyCode={activeLobbyCode!}
-          userName={userName} // You'll need a state for this!
+          userName={userName}
           onVoteSubmitted={() => {
             setCurrentScreen("RESULTS WAITING");
           }}
@@ -289,23 +314,24 @@ function App() {
     );
   }
 
-  // Default: HOME
   return (
-    <>
-      <div>
-        <h1>Game Decider</h1>
-        <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
-          <Button
-            content="Create Lobby"
-            onClick={() => setCurrentScreen("CREATE")}
-          />
-          <Button
-            content="Join Lobby"
-            onClick={() => setCurrentScreen("JOIN")}
-          />
-        </div>
+    <div className="min-h-screen w-full bg-slate-950 flex flex-col items-center justify-center p-6 text-white">
+      {/*Title Section */}
+      <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-center italic">
+        GAME <br /> DECIDER
+      </h1>
+      <p className="text-slate-400 mt-4 md:text-xl font-medium tracking-wide">
+        The ultimate tool for game nights.
+      </p>
+      {/*Buttons*/}
+      <div className="flex flex-col sm:flex-row gap-4 mt-12 w-full max-w-md">
+        <Button
+          content="Create Lobby"
+          onClick={() => setCurrentScreen("CREATE")}
+        />
+        <Button content="Join Lobby" onClick={() => setCurrentScreen("JOIN")} />
       </div>
-    </>
+    </div>
   );
 }
 
