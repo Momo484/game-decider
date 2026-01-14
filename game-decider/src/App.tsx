@@ -31,6 +31,8 @@ function App() {
 
   const [lobby, setLobby] = useState<LobbyData | null>(null);
 
+  const [numVotes, setNumVotes] = useState<number>(0);
+
   // Sends Details of a new lobby to supabase and autojoins user as host of
   // new lobby.
   const handleCreateSubmit = async (
@@ -193,6 +195,7 @@ function App() {
             setCurrentScreen("RESULTS");
             setLobby(payload.new as LobbyData);
           }
+          setNumVotes(payload.new.participants.length as number);
         }
       )
       .subscribe();
@@ -257,7 +260,7 @@ function App() {
       <ResultsWaiting
         isHost={isHost}
         onFinishVoting={handleFinishVoting}
-        numVotes={lobby?.participants.length as number}
+        numVotes={numVotes}
       />
     );
   }
