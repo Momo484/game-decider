@@ -16,25 +16,26 @@ export function SortableGameCard({ id, name }: ItemProps) {
     isDragging,
   } = useSortable({ id });
 
-  const style = {
+  const dndStyle = {
     transform: CSS.Transform.toString(transform),
     transition,
-    zIndex: isDragging ? 1 : 0,
-    opacity: isDragging ? 0.5 : 1,
-    padding: "1rem",
-    margin: "0.5rem 0",
-    backgroundColor: "#2a2a2a",
-    borderRadius: "8px",
-    cursor: "grab",
-    border: "1px solid #444",
-    display: "flex",
-    alignItems: "center",
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <span style={{ marginRight: "10px", color: "#888" }}>☰</span>
-      {name}
+    <div
+      ref={setNodeRef}
+      style={dndStyle}
+      {...attributes}
+      {...listeners}
+      /* isDragging ? logic makes the card look like it's "lifting" off the screen */
+      className={`flex items-center p-4 mb-3 bg-slate-900 border rounded-2xl cursor-grab active:cursor-grabbing transition-colors ${
+        isDragging
+          ? "border-blue-500 z-50 shadow-2xl shadow-blue-500/20 opacity-50"
+          : "border-slate-800"
+      }`}
+    >
+      <div className="mr-4 text-slate-600 font-bold">☰</div>
+      <span className="font-semibold text-slate-200">{name}</span>
     </div>
   );
 }

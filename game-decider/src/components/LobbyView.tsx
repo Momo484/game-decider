@@ -145,6 +145,17 @@ export default function LobbyView({
         </div>
       </div>
 
+      {/* interaction */}
+      <div className="space-y-4 py-5">
+        {isHost ? (
+          <Button content="Start Voting" onClick={onStartVoting} />
+        ) : (
+          <h2 className="text-sm font-bold uppercase tracking-[0.3em] text-slate-500 mb-4 ml01">
+            Waiting for the host to start...
+          </h2>
+        )}
+      </div>
+
       {/* Participants */}
       <div className="mt-12 w-full max-w-md">
         <h3 className="text-sm font-bold uppercase tracking-[0.3em] text-slate-500 mb-4 ml-1">
@@ -167,17 +178,6 @@ export default function LobbyView({
             </div>
           ))}
         </div>
-      </div>
-
-      {/* interaction */}
-      <div className="space-y-4 py-5">
-        {isHost ? (
-          <Button content="Start Voting" onClick={onStartVoting} />
-        ) : (
-          <h2 className="text-sm font-bold uppercase tracking-[0.3em] text-slate-500 mb-4 ml01">
-            Waiting for the host to start...
-          </h2>
-        )}
       </div>
     </div>
   );

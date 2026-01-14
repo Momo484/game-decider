@@ -8,6 +8,8 @@ import LobbyView from "./components/LobbyView";
 import VotingScreen from "./components/VotingScreen";
 import type { LobbyData } from "./types";
 import { calculateResults } from "./lib/CalculateResults";
+import ResultsWaiting from "./components/ResultsWaiting";
+import Results from "./components/Results";
 
 type Screen =
   | "HOME"
@@ -240,78 +242,28 @@ function App() {
 
   if (currentScreen === "VOTING") {
     return (
-      <div className="container">
-        <h1>Voting Room</h1>
-        <VotingScreen
-          lobbyCode={activeLobbyCode!}
-          userName={userName}
-          onVoteSubmitted={() => {
-            setCurrentScreen("RESULTS WAITING");
-          }}
-        />
-
-        <Button
-          content="Exit to Home"
-          onClick={() => setCurrentScreen("HOME")}
-        />
-      </div>
+      <VotingScreen
+        lobbyCode={activeLobbyCode!}
+        userName={userName}
+        onVoteSubmitted={() => {
+          setCurrentScreen("RESULTS WAITING");
+        }}
+      />
     );
   }
 
   if (currentScreen === "RESULTS WAITING") {
     return (
-      <div className="container">
-        <h1>Ballot Submitted!</h1>
-        <p>Your rankings are locked in.</p>
-
-        {/* Real-time feedback makes the system feel alive */}
-        <div className="status-box">
-          {isHost ? (
-            <>
-              <p>
-                Once everyone has finished, click below to calculate the winner.
-              </p>
-              <Button
-                content="Finish Voting & Reveal Winner"
-                onClick={handleFinishVoting}
-              />
-            </>
-          ) : (
-            <div className="loader">
-              <p>Waiting for the host to finalize the results...</p>
-              {/* You could add a count here later: "5 votes collected" */}
-            </div>
-          )}
-        </div>
-      </div>
+      <ResultsWaiting
+        isHost={isHost}
+        onFinishVoting={handleFinishVoting}
+        numVotes={lobby?.participants.length as number}
+      />
     );
   }
 
   if (currentScreen === "RESULTS") {
-    return (
-      <div className="container results-screen">
-        <h1>The Results are In!</h1>
-
-        <div className="podium">
-          {lobby?.results?.map((game, index) => (
-            <div key={game} className={`rank-card rank-${index + 1}`}>
-              <span className="medal">
-                {index === 0
-                  ? "🥇"
-                  : index === 1
-                  ? "🥈"
-                  : index === 2
-                  ? "🥉"
-                  : `#${index + 1}`}
-              </span>
-              <span className="game-name">{game}</span>
-            </div>
-          ))}
-        </div>
-
-        <Button content="New Game" onClick={() => window.location.reload()} />
-      </div>
-    );
+    return <Results results={lobby?.results as string[]} />;
   }
 
   return (

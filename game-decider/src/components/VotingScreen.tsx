@@ -122,37 +122,50 @@ export default function VotingScreen({
   // 6. RENDER GUARD: Prevents dnd-kit from initializing with null/empty data
   if (!lobby || items.length === 0) {
     return (
-      <div className="container">
-        <p>Loading your lobby's games...</p>
+      <div className="min-h-screen w-full bg-slate-950 flex flex-col items-center justify-start py-12 px-6">
+        <h2 className="text-sm font-bold uppercase tracking-[0.3em] text-slate-500 mb-4 ml01">
+          Waiting for the host to start...
+        </h2>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: "400px", margin: "0 auto", textAlign: "center" }}>
-      <h2>Rank Your Choices</h2>
-      <p style={{ fontSize: "0.9rem", color: "#888", marginBottom: "1.5rem" }}>
-        Drag the best games to the top!
-      </p>
-
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext items={items} strategy={verticalListSortingStrategy}>
-          <div
-            style={{ display: "flex", flexDirection: "column", gap: "10px" }}
-          >
-            {items.map((game) => (
-              <SortableGameCard key={game} id={game} name={game} />
-            ))}
-          </div>
-        </SortableContext>
-      </DndContext>
-
-      <div style={{ marginTop: "2.5rem" }}>
-        <Button content="Submit My Ballot" onClick={submitVote} />
+    <div className="min-h-screen w-full bg-slate-950 flex flex-col items-center justify-start py-12 px-6">
+      {/* header */}
+      <div className="text-center max-w-md mb-10 space-y-2">
+        <h1 className="text-4xl font-black tracking-tighter italic text-white">
+          RANK YOUR CHOICES
+        </h1>
+        <p className="text-slate-500 text sm font-medium leading-relaxed uppercase">
+          Drag your favorites to the top!
+        </p>
+      </div>
+      {/* Draggable list area*/}
+      <div className="w-full max-w-md">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={items} strategy={verticalListSortingStrategy}>
+            <div className="flex flex-col">
+              {items.map((game, index) => (
+                <div key={game} className="relative group">
+                  {/* Visual Rank Number (#1, #2, etc) */}
+                  <div className="absolute -left-10 top-1/2 -translate-y-1/2 text-slate-700 font-black italic text-xl">
+                    #{index + 1}
+                  </div>
+                  <SortableGameCard id={game} name={game} />
+                </div>
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      </div>
+      {/* Action Footer */}
+      <div className="mt-12 w-full flex justify-center max-w-70">
+        <Button content="SUBMIT MY BALLOT" onClick={submitVote} />
       </div>
     </div>
   );
