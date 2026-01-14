@@ -6,7 +6,6 @@ interface ButtonProps {
   type?: "button" | "submit" | "reset";
   disabled?: boolean;
 }
-//button!
 export default function Button({
   content,
   onClick,
