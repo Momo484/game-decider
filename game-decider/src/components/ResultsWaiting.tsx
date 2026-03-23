@@ -3,16 +3,22 @@ import Button from "./Button";
 export default function ResultsWaiting({
   isHost,
   onFinishVoting,
+  numVotes,
 }: {
   isHost: boolean;
   onFinishVoting: () => void;
+  numVotes: number;
 }) {
   return (
     <div className="min-h-screen w-full bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
       <h1 className="text-4xl font-black tracking-tighter text-white uppercase italic">
         Ballot Locked
       </h1>
-
+      <div className="mt-4 px-4 py-1 bg-slate-900 border border-slate-800 rounded-full inline-flex items-center gap-2">
+        <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">
+          {numVotes} {numVotes === 1 ? "Vote" : "Votes"} Cast
+        </span>
+      </div>
       <div className="mt-10 w-full max-w-sm">
         {isHost ? (
           <div className="space-y-6">
