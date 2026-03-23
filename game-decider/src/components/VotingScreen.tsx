@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { supabase } from "../lib/supabase";
 import {
   DndContext,
@@ -20,63 +20,18 @@ import { SortableGameCard } from "./SortableGameCard";
 import type { LobbyData } from "../types";
 
 interface VotingScreenProps {
-  lobbyCode: string;
+  lobby: LobbyData | null;
   userName: string;
   onVoteSubmitted: () => void;
 }
 
 export default function VotingScreen({
-  lobbyCode,
+  lobby,
   userName,
   onVoteSubmitted,
 }: VotingScreenProps) {
-  // 1. DATABASE STATE: Holds the raw data from Supabase
-  const [lobby, setLobby] = useState<LobbyData | null>(null);
-
   // 2. UI STATE: Holds the draggable order (initialized from lobby or empty)
   const [items, setItems] = useState<string[]>(lobby?.game_list ?? []);
-
-  // 3. FETCH & SUBSCRIBE: Sync with the cloud
-  useEffect(() => {
-    const fetchLobbyData = async () => {
-      const { data, error } = await supabase
-        .from("lobbies")
-        .select("*")
-        .eq("code", lobbyCode)
-        .single();
-
-      if (error) {
-        console.error("Fetch error:", error.message);
-      } else if (data) {
-        setLobby(data as LobbyData);
-        setItems((data as LobbyData).game_list ?? []);
-      }
-    };
-
-    fetchLobbyData();
-
-    const channel = supabase
-      .channel(`lobby-voting-${lobbyCode}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "lobbies",
-          filter: `code=eq.${lobbyCode}`,
-        },
-        (payload) => {
-          setLobby(payload.new as LobbyData);
-          setItems((payload.new as LobbyData).game_list ?? []);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [lobbyCode]);
-
   // 4. DND SENSORS: Defined at the top level to avoid Hook errors
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -84,7 +39,7 @@ export default function VotingScreen({
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -99,14 +54,14 @@ export default function VotingScreen({
   };
 
   const submitVote = async () => {
-    if (!lobbyCode || !userName || items.length === 0) {
+    if (!lobby || !userName || items.length === 0) {
       alert("Missing info or list not loaded.");
       return;
     }
 
     const { error } = await supabase.from("votes").insert([
       {
-        lobby_code: lobbyCode,
+        lobby_code: lobby.code,
         user_name: userName,
         ranked_ids: items,
       },

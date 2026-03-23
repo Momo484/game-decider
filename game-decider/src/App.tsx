@@ -10,6 +10,7 @@ import type { LobbyData } from "./types";
 import { calculateResults } from "./lib/CalculateResults";
 import ResultsWaiting from "./components/ResultsWaiting";
 import Results from "./components/Results";
+import { isUsernameUnique, isUsernameValid } from "./logic/Auth";
 
 type Screen =
   | "HOME"
@@ -31,12 +32,14 @@ function App() {
 
   const [lobby, setLobby] = useState<LobbyData | null>(null);
 
+  const [votesIn, setVotesIn] = useState<number>(0);
+
   // Sends Details of a new lobby to supabase and autojoins user as host of
   // new lobby.
   const handleCreateSubmit = async (
     title: string,
     games: string[],
-    userName: string
+    userName: string,
   ) => {
     // we gotta create a database entry for the lobby, set the lobbyCode as generated
     // then change the screen to a lobby vote screen, and allow for voting
@@ -87,6 +90,7 @@ function App() {
     // .select: retreives every column
     // .eq: Filters our rows by the code that has been passed in.
     // .single: as opposed to .select, this returns only a single object.
+
     const lobbyCode = code.toUpperCase();
     const { data, error } = await supabase
       .from("lobbies")
@@ -96,6 +100,13 @@ function App() {
 
     if (error || !data) {
       alert("Lobby not found! Check the code and try again.");
+      return;
+    }
+
+    if (
+      !isUsernameUnique(userName, data.participants) ||
+      !isUsernameValid(userName)
+    ) {
       return;
     }
 
@@ -112,9 +123,11 @@ function App() {
       return;
     }
 
+    const updatedLobby = d2[0] as LobbyData;
+
     setActiveLobbyCode(lobbyCode);
+    setLobby(updatedLobby as LobbyData);
     setCurrentScreen("LOBBY");
-    setLobby(data as LobbyData);
   };
 
   // Sends update to supabase to begin voting for all players
@@ -172,7 +185,7 @@ function App() {
     // table named lobbies with the code matching the activeLobby code (for performance)).
     // payload: is the packet of information sent from supabase, with the updated row info.
     // .subscribe: Turns on the listener and starts the stream.
-    const channel = supabase
+    const lobbyChannel = supabase
       .channel("lobby-room")
       .on(
         "postgres_changes",
@@ -186,20 +199,46 @@ function App() {
           console.log("Lobby updated live!", payload.new);
           // Here you can check if payload.new.is_voting_open is true
           // and switch everyone's screen automatically!
+          setLobby(payload.new as LobbyData);
           if (payload.new.is_voting_open) {
             setCurrentScreen("VOTING");
           }
           if (payload.new.voting_finished) {
             setCurrentScreen("RESULTS");
-            setLobby(payload.new as LobbyData);
           }
-        }
+        },
+      )
+      .subscribe();
+
+    const votesChannel = supabase
+      .channel(`votes-${activeLobbyCode}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*", // Listen to INSERT, UPDATE, and DELETE
+          schema: "public",
+          table: "votes",
+          filter: `lobby_code=eq.${activeLobbyCode}`,
+        },
+        async () => {
+          // Instead of relying on payload.new (which is just one row),
+          // we re-query the count to ensure 100% accuracy.
+          const { count, error } = await supabase
+            .from("votes")
+            .select("*", { count: "exact", head: true })
+            .eq("lobby_code", activeLobbyCode);
+
+          if (!error && count !== null) {
+            setVotesIn(count);
+          }
+        },
       )
       .subscribe();
 
     // Tells the app to stop listening.
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(lobbyChannel);
+      supabase.removeChannel(votesChannel);
     };
     // [activeLobbyCode] is our dependency array, this function runs when active lobby
     // code changes.
@@ -210,7 +249,7 @@ function App() {
     return (
       <div>
         <LobbyView
-          lobbyCode={activeLobbyCode}
+          lobby={lobby}
           isHost={isHost}
           onStartVoting={handleStartVoting}
         />
@@ -243,7 +282,7 @@ function App() {
   if (currentScreen === "VOTING") {
     return (
       <VotingScreen
-        lobbyCode={activeLobbyCode!}
+        lobby={lobby}
         userName={userName}
         onVoteSubmitted={() => {
           setCurrentScreen("RESULTS WAITING");
@@ -257,7 +296,7 @@ function App() {
       <ResultsWaiting
         isHost={isHost}
         onFinishVoting={handleFinishVoting}
-        numVotes={lobby?.participants.length as number}
+        numVotes={votesIn}
       />
     );
   }

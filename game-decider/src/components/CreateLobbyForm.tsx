@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Button from "./Button";
+import { isUsernameValid } from "../logic/Auth";
 
 interface CreateLobbyFormProps {
   onCreate: (title: string, games: string[], userName: string) => void;
@@ -30,6 +31,9 @@ export default function CreateLobbyForm({
 
   const handleSubmit = () => {
     const cleanGames = games.filter((g) => g.trim() !== "");
+    if (!isUsernameValid(userName)) {
+      return;
+    }
     onCreate(title, cleanGames, userName);
   };
 
